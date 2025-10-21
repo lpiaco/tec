@@ -369,18 +369,23 @@
             <form id="contact-form">
                 <div class="form-group">
                     <label for="full_name">Full Name</label>
-                    <input type="text" id="full_name" required placeholder="John Doe">
+                    <input type="text" id="full_name" required placeholder="Bahlul Dulkamdi">
                     <div id="name-error" class="form-error hidden"></div>
                 </div>
                 <div class="form-group">
                     <label for="email_address">Email Address</label>
-                    <input type="email" id="email_address" required placeholder="john.doe@example.com">
+                    <input type="email" id="email_address" required placeholder="bahlul@gmail.com">
                     <div id="email-error" class="form-error hidden"></div>
                 </div>
                 <div class="form-group">
                     <label for="mobile_phone">Mobile Phone #</label>
-                    <input type="tel" id="mobile_phone" required placeholder="e.g., +62 812-3456-7890">
+                    <input type="tel" id="mobile_phone" required placeholder="0812-1234-5678">
                     <div id="phone-error" class="form-error hidden"></div>
+                </div>
+                <div class="form-group">
+                    <label for="lpia_branch">LPIA Branch</label>
+                    <input type="text" id="lpia_branch" required placeholder="Buaran">
+                    <div id="branch-error" class="form-error hidden"></div>
                 </div>
                 
                 <!-- GOOGLE RECAPTCHA V2 WIDGET -->
@@ -388,7 +393,7 @@
                     <div class="g-recaptcha" data-sitekey="6LeUSPIrAAAAAGXOo_6e-Bp1gjMFeJ81dJNQOLf_"></div>
                     <!-- Error message for reCAPTCHA -->
                     <div id="recaptcha-error" class="form-error hidden">
-                        Please complete the reCAPTCHA verification to proceed.
+                        Please verify reCAPTCHA to proceed.
                     </div>
                 </div>
                 <!-- END RECAPTCHA WIDGET -->
@@ -434,12 +439,12 @@
 
         <!-- 3. Result Area (Hidden first) -->
         <div id="result-area" class="hidden">
-            <h2>Assessment Complete!</h2>
+            <h2>Certification Complete!</h2>
             <p id="email-status-message" class="hidden"></p>
             <p class="score-message">Your final score is:</p>
-            <p id="final-score">0 / 10</p>
+            <p id="final-score">0 / 100</p>
             <button id="restart-button">
-                Restart Test
+                Restart
             </button>
         </div>
 
@@ -483,12 +488,13 @@
             full_name: '',
             email_address: '',
             mobile_phone: ''
+            lpia_branch: ''
         };
 
         // --- EMAILJS CONFIG (REPLACE WITH YOUR SERVICE AND TEMPLATE IDs) ---
         // NOTE: Public Key is already initialized in the <head> section.
-        const EMAILJS_SERVICE_ID = 'YOUR_SERVICE_ID'; 
-        const EMAILJS_TEMPLATE_ID = 'YOUR_TEMPLATE_ID'; 
+        const EMAILJS_SERVICE_ID = 'service_yavgh0g'; 
+        const EMAILJS_TEMPLATE_ID = 'template_xGvEC3QU'; 
 
         // --- DOM ELEMENTS ---
         const contactFormScreen = document.getElementById('contact-form-screen');
@@ -501,6 +507,7 @@
         const fullNameInput = document.getElementById('full_name');
         const emailInput = document.getElementById('email_address');
         const phoneInput = document.getElementById('mobile_phone');
+        const branchInput = document.getElementById('lpia_branch');
         const recaptchaError = document.getElementById('recaptcha-error'); // New element reference
 
         // Quiz elements
@@ -552,13 +559,19 @@
                 document.getElementById('email-error').classList.remove('hidden');
                 isValid = false;
             }
-            
+
             if (phoneInput.value.trim() === '') {
                  document.getElementById('phone-error').textContent = 'Mobile Phone # is required.';
                 document.getElementById('phone-error').classList.remove('hidden');
                 isValid = false;
             }
-            
+
+            if (branchInput.value.trim() === '') {
+                document.getElementById('branch-error').textContent = 'Branch Name is required.';
+                document.getElementById('branch-error').classList.remove('hidden');
+                isValid = false;
+            }
+
             // 3. Validate reCAPTCHA
             // Check if grecaptcha object is available and if a response token exists
             const recaptchaResponse = (typeof grecaptcha !== 'undefined' && grecaptcha.getResponse) 
@@ -577,11 +590,12 @@
                 userData.full_name = fullNameInput.value.trim();
                 userData.email_address = emailInput.value.trim();
                 userData.mobile_phone = phoneInput.value.trim();
+                userData.lpia_branch = branchInput.value.trim();
 
                 // Transition from form to quiz
                 contactFormScreen.classList.add('hidden');
                 quizActiveContent.classList.remove('hidden');
-                document.querySelector('.subtitle').textContent = 'Answer all questions before reviewing your score.';
+                document.querySelector('.subtitle').textContent = 'Answer all questions before seeing your score.';
                 initializeQuiz();
             }
         }
@@ -673,15 +687,15 @@
 
             if (answeredCount < totalQuestions) {
                 modalTitle.textContent = "Hold On!";
-                modalMessage.innerHTML = `You have only answered <strong>${answeredCount}</strong> out of <strong>${totalQuestions}</strong> questions. You must answer all questions to see the score. <br><br>Do you want to continue reviewing your answers?`;
-                modalConfirm.textContent = "Continue Reviewing";
+                modalMessage.innerHTML = `You have only answered <strong>${answeredCount}</strong> out of <strong>${totalQuestions}</strong> questions. You should answer all of them! <br><br>Do you want to continue?`;
+                modalConfirm.textContent = "Continue";
                 modalConfirm.onclick = () => hideModal();
             } else {
                 finalScore = calculateScore();
 
-                modalTitle.textContent = "Ready to Finish?";
-                modalMessage.innerHTML = `You have answered all <strong>${totalQuestions}</strong> questions. <br><br>Your score (${finalScore}/${totalQuestions}) will be recorded. Are you ready to see your final score?`;
-                modalConfirm.textContent = "Yes, Show Score";
+                modalTitle.textContent = "Ready to finish?";
+                modalMessage.innerHTML = `You have answered all <strong>${totalQuestions}</strong> questions. <br><br>Your score will be recorded. Ready to see your final score?`;
+                modalConfirm.textContent = "Yes";
                 modalConfirm.onclick = sendResultsAndShowScore; 
             }
             
@@ -712,7 +726,7 @@
 
             emailStatusMessage.classList.remove('hidden', 'status-error', 'status-success');
             emailStatusMessage.classList.add('status-loading');
-            emailStatusMessage.textContent = 'Sending results via EmailJS... Please wait.';
+            emailStatusMessage.textContent = 'Sending results. Please wait ...';
             
             quizActiveContent.classList.add('hidden');
 
@@ -720,6 +734,7 @@
                 user_full_name: userData.full_name,
                 user_email: userData.email_address,
                 user_phone: userData.mobile_phone,
+                user_branch: userData.lpia_branch,
                 final_score: `${finalScore}/${totalQuestions} (${percentage}%)`,
                 recipient_email: "tony@permadi.id" 
             };
@@ -738,7 +753,7 @@
 
             } catch (error) {
                 console.error("EmailJS Error:", error);
-                emailStatusMessage.textContent = 'Error sending data. Check console for details. (Score saved locally)';
+                emailStatusMessage.textContent = 'Error sending data! Score saved locally.';
                 emailStatusMessage.classList.remove('status-loading');
                 emailStatusMessage.classList.add('status-error');
             }
