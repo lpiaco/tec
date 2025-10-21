@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dynamic Quiz with Data Capture & reCAPTCHA</title>
+    
+    <!-- EmailJS CDN - Required for sending data -->
+    <script type="text/javascript" src="https://cdn.emailjs.com/dist/email.min.js"></script>
+    <script type="text/javascript">
+        // Initialize EmailJS with your Public Key
+        // Public Key provided by user: user_rJUTKT5GfQnDX5A7VRhDO
+        (function() {
+            emailjs.init("user_rJUTKT5GfQnDX5A7VRhDO");
+        })();
+    </script>
+    
+    <!-- Google reCAPTCHA v2 Script -->
+    <!-- The async and defer attributes ensure this loads without blocking the main page content -->
+    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+
+    <!-- Custom CSS for self-contained styling -->
+    <style>
+        /* Using a common sans-serif stack as 'Inter' is no longer available offline */
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f7fafc;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 16px; /* p-4 equivalent */
+        }
+
+        .quiz-card {
+            background-color: white;
+            width: 100%;
+            max-width: 500px; /* max-w-xl equivalent */
+            margin: 0 auto;
+            padding: 2.5rem; /* p-10 equivalent */
+            border-radius: 1rem;
+            border: 1px solid #e5e7eb; /* border-gray-100 equivalent */
+            box-shadow: 0 15px 30px -5px rgba(0, 0, 0, 0.1), 0 8px 16px -6px rgba(0, 0, 0, 0.05);
+        }
+
+        /* Responsive padding adjustment for smaller screens */
+        @media (max-width: 768px) {
+            .quiz-card {
+                padding: 1.5rem; /* p-6 equivalent */
+            }
+        }
+
+        /* Typography */
+        h1 {
+            font-size: 1.875rem; /* text-3xl */
+            font-weight: 800; /* font-extrabold */
+            text-align: center;
+            color: #4338ca; /* text-indigo-800 equivalent */
+            margin-bottom: 0.5rem;
+        }
+
+        .subtitle {
+            text-align: center;
+            font-size: 0.875rem; /* text-sm */
+            color: #6b7280; /* text-gray-500 equivalent */
+            margin-bottom: 1.5rem; /* mb-6 equivalent */
+        }
+
+        /* Form Styling */
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: #1f2937;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #d1d5db;
+            border-radius: 0.5rem;
+            font-size: 1rem;
+            transition: border-color 0.15s;
+        }
+        .form-group input:focus {
+            outline: none;
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 1px #4f46e5;
+        }
+        .form-error {
+            color: #dc2626; /* red-600 */
+            font-size: 0.875rem;
+            margin-top: 0.25rem;
+        }
+        
+        /* Progress Bar (Quiz) */
+        .progress-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.875rem;
+            color: #4b5563; /* text-gray-600 */
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+
+        .progress-bar-track {
+            height: 4px; /* h-1 */
+            background-color: #e5e7eb; /* bg-gray-200 */
+            border-radius: 9999px;
+            margin-bottom: 1.5rem;
+        }
+
+        .progress-bar-fill {
+            height: 4px;
+            background-color: #6366f1; /* bg-indigo-500 */
+            border-radius: 9999px;
+            transition: width 0.3s ease-in-out;
+        }
+
+        /* Question Area */
+        #question-text {
+            font-size: 1.25rem; /* text-xl */
+            font-weight: 700; /* font-bold */
+            margin-bottom: 1.5rem;
+            color: #1f2937; /* text-gray-800 */
+            min-height: 5rem;
+        }
+
+        #options-container {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem; /* space-y-4 equivalent */
+        }
+
+        /* Option Button Styling */
+        .option-button {
+            width: 100%;
+            text-align: left;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            border: 2px solid #d1d5db; /* border-gray-300 */
+            color: #374151; /* text-gray-700 */
+            background-color: white;
+            transition: all 0.15s ease-in-out;
+            cursor: pointer;
+        }
+
+        .option-button:hover:not(.selected) {
+            background-color: #f3f4f6;
+        }
+
+        /* Selected State */
+        .selected {
+            background-color: #e0f2fe; /* light blue */
+            border-color: #3b82f6; /* blue */
+            font-weight: 600;
+        }
+
+        /* Navigation Buttons (shared with form submit) */
+        .action-button {
+            width: 100%;
+            padding: 0.75rem;
+            font-weight: 600;
+            border-radius: 0.5rem;
+            transition: background-color 0.15s;
+            margin-top: 1.5rem;
+        }
+
+        .nav-controls {
+            margin-top: 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .nav-button {
+             padding: 0.5rem 1rem;
+             font-weight: 600;
+             border-radius: 0.5rem;
+             transition: background-color 0.15s;
+        }
+
+        #prev-button {
+            background-color: #e5e7eb; /* bg-gray-200 */
+            color: #4b5563; /* text-gray-700 */
+        }
+        #prev-button:hover:not(:disabled) {
+            background-color: #d1d5db; /* hover:bg-gray-300 */
+        }
+
+        #next-button, #start-quiz-button {
+            background-color: #4f46e5; /* bg-indigo-600 */
+            color: white;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+        }
+        #next-button:hover, #start-quiz-button:hover {
+            background-color: #4338ca; /* hover:bg-indigo-700 */
+        }
+        
+        /* Specific full-width button for form */
+        #start-quiz-button {
+            width: 100%;
+            padding: 0.75rem;
+            margin-top: 1.5rem;
+        }
+
+        #finish-button {
+            background-color: #10b981; /* bg-green-600 */
+            color: white;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+        }
+        #finish-button:hover {
+            background-color: #059669; /* hover:bg-green-700 */
+        }
+
+        .nav-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Result Area */
+        #result-area {
+            text-align: center;
+            padding-top: 2rem;
+        }
+        #result-area h2 {
+            font-size: 1.875rem;
+            font-weight: 800;
+            color: #4f46e5; /* text-indigo-700 */
+            margin-bottom: 0.5rem;
+        }
+        #result-area p.score-message {
+            font-size: 1.25rem;
+            color: #4b5563; /* text-gray-600 */
+            margin-bottom: 1rem;
+        }
+        #final-score {
+            font-size: 3rem; /* text-5xl */
+            font-weight: 800;
+            color: #10b981; /* text-green-600 */
+            margin-bottom: 2rem;
+        }
+        #final-score span {
+            display: block;
+            font-size: 1.5rem; /* text-3xl */
+            color: #374151; /* text-gray-700 */
+            margin-top: 0.5rem;
+        }
+
+        #restart-button {
+            padding: 0.75rem 1.5rem;
+            background-color: #6366f1; /* bg-indigo-500 */
+            color: white;
+            font-weight: 600;
+            border-radius: 0.5rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+            transition: background-color 0.15s;
+        }
+        #restart-button:hover {
+            background-color: #4f46e5; /* hover:bg-indigo-600 */
+        }
+
+        /* Modal Styling */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 50;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: rgba(0, 0, 0, 0.6);
+            opacity: 1;
+            transition: opacity 0.3s;
+        }
+
+        .modal-content {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 0.75rem;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            max-width: 384px; /* max-w-sm */
+            width: 90%;
+            transform: scale(1);
+            transition: transform 0.3s;
+        }
+        
+        #modal-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            color: #4338ca; /* indigo-700 */
+        }
+        #modal-message {
+            color: #374151; /* gray-700 */
+            margin-bottom: 1.5rem;
+        }
+        .modal-buttons {
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.75rem; /* space-x-3 */
+        }
+        
+        #modal-cancel {
+            padding: 0.5rem 1rem;
+            color: #4b5563; /* gray-600 */
+            border: 1px solid #d1d5db;
+            border-radius: 0.5rem;
+        }
+        #modal-cancel:hover {
+            background-color: #f3f4f6; /* hover:bg-gray-100 */
+        }
+
+        #modal-confirm {
+            padding: 0.5rem 1rem;
+            background-color: #10b981; /* green-600 */
+            color: white;
+            font-weight: 600;
+            border-radius: 0.5rem;
+        }
+        #modal-confirm:hover {
+            background-color: #059669; /* hover:bg-green-700 */
+        }
+
+        .hidden { display: none !important; }
+
+        /* Status Message */
+        #email-status-message {
+            text-align: center;
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            margin-top: 1rem;
+            font-weight: 600;
+        }
+        .status-success {
+            background-color: #dcfce7; /* green-100 */
+            color: #059669; /* green-700 */
+        }
+        .status-error {
+            background-color: #fee2e2; /* red-100 */
+            color: #dc2626; /* red-600 */
+        }
+        .status-loading {
+            background-color: #eff6ff; /* blue-100 */
+            color: #3b82f6; /* blue-600 */
+        }
+        
+        /* ReCAPTCHA specific margin for alignment */
+        #recaptcha-error {
+            margin-bottom: 0.5rem;
+        }
+
+    </style>
+</head>
+<body>
+
+    <!-- Main Container -->
+    <div id="quiz-container" class="quiz-card">
+        
+        <!-- Header (Shared) -->
+        <h1 class="header">Certification<br>
+		Teaching of English Conversation</h1>
+        <p class="subtitle">Complete the form and verify to start the quiz.</p>
+
+        <!-- 1. Contact Form Screen (Visible first) -->
+        <div id="contact-form-screen">
+            <form id="contact-form">
+                <div class="form-group">
+                    <label for="full_name">Full Name</label>
+                    <input type="text" id="full_name" required placeholder="John Doe">
+                    <div id="name-error" class="form-error hidden"></div>
+                </div>
+                <div class="form-group">
+                    <label for="email_address">Email Address</label>
+                    <input type="email" id="email_address" required placeholder="john.doe@example.com">
+                    <div id="email-error" class="form-error hidden"></div>
+                </div>
+                <div class="form-group">
+                    <label for="mobile_phone">Mobile Phone #</label>
+                    <input type="tel" id="mobile_phone" required placeholder="e.g., +62 812-3456-7890">
+                    <div id="phone-error" class="form-error hidden"></div>
+                </div>
+                
+                <!-- GOOGLE RECAPTCHA V2 WIDGET -->
+                <div class="form-group">
+                    <div class="g-recaptcha" data-sitekey="6LeUSPIrAAAAAGXOo_6e-Bp1gjMFeJ81dJNQOLf_"></div>
+                    <!-- Error message for reCAPTCHA -->
+                    <div id="recaptcha-error" class="form-error hidden">
+                        Please complete the reCAPTCHA verification to proceed.
+                    </div>
+                </div>
+                <!-- END RECAPTCHA WIDGET -->
+
+                <button type="submit" id="start-quiz-button" class="action-button">
+                    Start Quiz
+                </button>
+            </form>
+        </div>
+
+        <!-- 2. Quiz Content Screen (Hidden first) -->
+        <div id="quiz-active-content" class="hidden">
+            <div id="progress" class="progress-container">
+                <span id="current-question-indicator"></span>
+                <span id="answered-count"></span>
+            </div>
+            <div id="progress-track-wrapper" class="progress-bar-track">
+                <div id="progress-bar" class="progress-bar-fill" style="width: 0%;"></div>
+            </div>
+            
+            <!-- Question Area -->
+            <div id="question-area">
+                <p id="question-text"></p>
+                <div id="options-container">
+                    <!-- Option buttons will be injected here -->
+                </div>
+            </div>
+
+            <!-- Navigation and Finish Button -->
+            <div id="nav-controls" class="nav-controls">
+                <button id="prev-button" class="nav-button" disabled>
+                    &larr; Previous
+                </button>
+                <button id="next-button" class="nav-button">
+                    Next &rarr;
+                </button>
+                <button id="finish-button" class="nav-button hidden">
+                    Review & Finish
+                </button>
+            </div>
+        </div>
+        <!-- END QUIZ CONTENT CONTAINER -->
+
+        <!-- 3. Result Area (Hidden first) -->
+        <div id="result-area" class="hidden">
+            <h2>Assessment Complete!</h2>
+            <p id="email-status-message" class="hidden"></p>
+            <p class="score-message">Your final score is:</p>
+            <p id="final-score">0 / 10</p>
+            <button id="restart-button">
+                Restart Test
+            </button>
+        </div>
+
+    </div>
+
+    <!-- Confirmation Modal (Custom Dialog) -->
+    <div id="confirmation-modal" class="hidden modal-overlay">
+        <div class="modal-content">
+            <h3 id="modal-title"></h3>
+            <p id="modal-message"></p>
+            <div class="modal-buttons">
+                <button id="modal-cancel">Cancel</button>
+                <button id="modal-confirm">Yes, Show Score</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- QUIZ DATA ---
+        const originalQuestions = [
+            { question: "What is the capital city of France?", correctAnswer: "Paris", options: ["London", "Berlin", "Madrid"] },
+            { question: "Which planet is known as the 'Red Planet'?", correctAnswer: "Mars", options: ["Jupiter", "Venus", "Saturn"] },
+            { question: "What is 7 multiplied by 8?", correctAnswer: "56", options: ["49", "64", "54"] },
+            { question: "Which element has the chemical symbol 'O'?", correctAnswer: "Oxygen", options: ["Gold", "Silver", "Iron"] },
+            { question: "What is the largest ocean on Earth?", correctAnswer: "Pacific Ocean", options: ["Atlantic Ocean", "Indian Ocean", "Arctic Ocean"] },
+            { question: "Who wrote 'Romeo and Juliet'?", correctAnswer: "William Shakespeare", options: ["Charles Dickens", "Jane Austen", "Mark Twain"] },
+            { question: "What year did the Titanic sink?", correctAnswer: "1912", options: ["1905", "1923", "1915"] },
+            { question: "How many sides does a hexagon have?", correctAnswer: "Six", options: ["Five", "Seven", "Eight"] },
+            { question: "What is the opposite of 'Nadir' in astronomy?", correctAnswer: "Zenith", options: ["Apex", "Horizon", "Meridian"] },
+            { question: "What is the primary function of the lungs?", correctAnswer: "Respiration", options: ["Digestion", "Circulation", "Filtration"] }
+        ];
+
+        // --- GLOBAL STATE ---
+        let shuffledQuestions = [];
+        let currentQuestionIndex = 0;
+        let userAnswers = [];
+        let finalScore = 0;
+        
+        // Data captured from the contact form
+        const userData = {
+            full_name: '',
+            email_address: '',
+            mobile_phone: ''
+        };
+
+        // --- EMAILJS CONFIG (REPLACE WITH YOUR SERVICE AND TEMPLATE IDs) ---
+        // NOTE: Public Key is already initialized in the <head> section.
+        const EMAILJS_SERVICE_ID = 'YOUR_SERVICE_ID'; 
+        const EMAILJS_TEMPLATE_ID = 'YOUR_TEMPLATE_ID'; 
+
+        // --- DOM ELEMENTS ---
+        const contactFormScreen = document.getElementById('contact-form-screen');
+        const contactForm = document.getElementById('contact-form');
+        const quizActiveContent = document.getElementById('quiz-active-content');
+        const resultArea = document.getElementById('result-area');
+        const emailStatusMessage = document.getElementById('email-status-message');
+        
+        // Form Inputs & Errors
+        const fullNameInput = document.getElementById('full_name');
+        const emailInput = document.getElementById('email_address');
+        const phoneInput = document.getElementById('mobile_phone');
+        const recaptchaError = document.getElementById('recaptcha-error'); // New element reference
+
+        // Quiz elements
+        const questionText = document.getElementById('question-text');
+        const optionsContainer = document.getElementById('options-container');
+        const prevButton = document.getElementById('prev-button');
+        const nextButton = document.getElementById('next-button');
+        const finishButton = document.getElementById('finish-button');
+        const indicator = document.getElementById('current-question-indicator');
+        const answeredCountDisplay = document.getElementById('answered-count');
+        const progressBar = document.getElementById('progress-bar');
+        const finalScoreDisplay = document.getElementById('final-score');
+        const restartButton = document.getElementById('restart-button');
+        const modal = document.getElementById('confirmation-modal');
+        const modalTitle = document.getElementById('modal-title');
+        const modalMessage = document.getElementById('modal-message');
+        const modalConfirm = document.getElementById('modal-confirm');
+        const modalCancel = document.getElementById('modal-cancel');
+
+
+        // --- UTILITY FUNCTION: Fisher-Yates Shuffle Algorithm ---
+        function shuffleArray(array) {
+            const arr = [...array]; 
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+            return arr;
+        }
+
+        // --- CONTACT FORM LOGIC (Modified for reCAPTCHA) ---
+        function validateAndStartQuiz(event) {
+            event.preventDefault();
+
+            let isValid = true;
+            
+            // 1. Reset all error messages
+            document.querySelectorAll('.form-error').forEach(el => el.classList.add('hidden'));
+
+            // 2. Validate Contact Fields
+            if (fullNameInput.value.trim() === '') {
+                document.getElementById('name-error').textContent = 'Full Name is required.';
+                document.getElementById('name-error').classList.remove('hidden');
+                isValid = false;
+            }
+
+            if (!emailInput.value.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
+                document.getElementById('email-error').textContent = 'A valid Email Address is required.';
+                document.getElementById('email-error').classList.remove('hidden');
+                isValid = false;
+            }
+            
+            if (phoneInput.value.trim() === '') {
+                 document.getElementById('phone-error').textContent = 'Mobile Phone # is required.';
+                document.getElementById('phone-error').classList.remove('hidden');
+                isValid = false;
+            }
+            
+            // 3. Validate reCAPTCHA
+            // Check if grecaptcha object is available and if a response token exists
+            const recaptchaResponse = (typeof grecaptcha !== 'undefined' && grecaptcha.getResponse) 
+                                       ? grecaptcha.getResponse() 
+                                       : null;
+                                       
+            if (!recaptchaResponse) {
+                recaptchaError.classList.remove('hidden');
+                isValid = false;
+            } else {
+                recaptchaError.classList.add('hidden');
+            }
+            
+            if (isValid) {
+                // Store user data globally
+                userData.full_name = fullNameInput.value.trim();
+                userData.email_address = emailInput.value.trim();
+                userData.mobile_phone = phoneInput.value.trim();
+
+                // Transition from form to quiz
+                contactFormScreen.classList.add('hidden');
+                quizActiveContent.classList.remove('hidden');
+                document.querySelector('.subtitle').textContent = 'Answer all questions before reviewing your score.';
+                initializeQuiz();
+            }
+        }
+
+        // --- QUIZ FUNCTIONS (Unchanged from previous revision, as they are not related to reCAPTCHA) ---
+
+        function updateProgress() {
+            const totalQuestions = shuffledQuestions.length;
+            const answeredCount = userAnswers.filter(a => a !== null).length;
+            
+            indicator.textContent = `Question ${currentQuestionIndex + 1} / ${totalQuestions}`;
+            answeredCountDisplay.textContent = `Answered: ${answeredCount} / ${totalQuestions}`;
+            
+            const progressPercentage = (answeredCount / totalQuestions) * 100;
+            progressBar.style.width = `${progressPercentage}%`;
+
+            if (currentQuestionIndex === totalQuestions - 1) {
+                nextButton.classList.add('hidden');
+                finishButton.classList.remove('hidden');
+            } else {
+                nextButton.classList.remove('hidden');
+                finishButton.classList.add('hidden');
+            }
+        }
+
+        function loadQuestion() {
+            if (shuffledQuestions.length === 0) return;
+
+            const currentQ = shuffledQuestions[currentQuestionIndex];
+            
+            updateProgress();
+
+            questionText.textContent = `${currentQuestionIndex + 1}. ${currentQ.question}`;
+            optionsContainer.innerHTML = ''; 
+
+            if (!currentQ.shuffledOptions) {
+                const allOptions = [currentQ.correctAnswer, ...currentQ.options];
+                currentQ.shuffledOptions = shuffleArray(allOptions);
+            }
+            const shuffledOptions = currentQ.shuffledOptions;
+            const savedAnswer = userAnswers[currentQuestionIndex];
+
+            shuffledOptions.forEach(option => {
+                const button = document.createElement('button');
+                button.textContent = option;
+                button.className = 'option-button';
+                button.setAttribute('data-answer', option);
+
+                if (savedAnswer === option) {
+                    button.classList.add('selected');
+                }
+
+                button.onclick = () => selectAnswer(button, option);
+                optionsContainer.appendChild(button);
+            });
+
+            prevButton.disabled = currentQuestionIndex === 0;
+            nextButton.disabled = currentQuestionIndex === shuffledQuestions.length - 1;
+        }
+
+        function selectAnswer(selectedButton, selectedAnswer) {
+            userAnswers[currentQuestionIndex] = selectedAnswer;
+
+            document.querySelectorAll('.option-button').forEach(btn => {
+                btn.classList.remove('selected');
+            });
+            selectedButton.classList.add('selected');
+            
+            updateProgress();
+        }
+
+        function nextQuestion() {
+            if (currentQuestionIndex < shuffledQuestions.length - 1) {
+                currentQuestionIndex++;
+                loadQuestion();
+            }
+        }
+
+        function prevQuestion() {
+            if (currentQuestionIndex > 0) {
+                currentQuestionIndex--;
+                loadQuestion();
+            }
+        }
+
+        function checkCompletion() {
+            const totalQuestions = shuffledQuestions.length;
+            const answeredCount = userAnswers.filter(a => a !== null).length;
+
+            if (answeredCount < totalQuestions) {
+                modalTitle.textContent = "Hold On!";
+                modalMessage.innerHTML = `You have only answered <strong>${answeredCount}</strong> out of <strong>${totalQuestions}</strong> questions. You must answer all questions to see the score. <br><br>Do you want to continue reviewing your answers?`;
+                modalConfirm.textContent = "Continue Reviewing";
+                modalConfirm.onclick = () => hideModal();
+            } else {
+                finalScore = calculateScore();
+
+                modalTitle.textContent = "Ready to Finish?";
+                modalMessage.innerHTML = `You have answered all <strong>${totalQuestions}</strong> questions. <br><br>Your score (${finalScore}/${totalQuestions}) will be recorded. Are you ready to see your final score?`;
+                modalConfirm.textContent = "Yes, Show Score";
+                modalConfirm.onclick = sendResultsAndShowScore; 
+            }
+            
+            modalCancel.onclick = () => hideModal();
+            modal.classList.remove('hidden');
+        }
+
+        function hideModal() {
+            modal.classList.add('hidden');
+        }
+
+        function calculateScore() {
+            let score = 0;
+            shuffledQuestions.forEach((q, index) => {
+                if (userAnswers[index] === q.correctAnswer) {
+                    score++;
+                }
+            });
+            return score;
+        }
+
+        // --- EMAILJS FUNCTIONALITY (Unchanged) ---
+        async function sendResultsAndShowScore() {
+            hideModal();
+            
+            const totalQuestions = shuffledQuestions.length;
+            const percentage = ((finalScore / totalQuestions) * 100).toFixed(1);
+
+            emailStatusMessage.classList.remove('hidden', 'status-error', 'status-success');
+            emailStatusMessage.classList.add('status-loading');
+            emailStatusMessage.textContent = 'Sending results via EmailJS... Please wait.';
+            
+            quizActiveContent.classList.add('hidden');
+
+            const templateParams = {
+                user_full_name: userData.full_name,
+                user_email: userData.email_address,
+                user_phone: userData.mobile_phone,
+                final_score: `${finalScore}/${totalQuestions} (${percentage}%)`,
+                recipient_email: "tony@permadi.id" 
+            };
+
+            try {
+                // Ensure emailjs is loaded before sending
+                if (typeof emailjs === 'undefined' || !emailjs.send) {
+                     throw new Error("EmailJS library is not loaded.");
+                }
+
+                await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, templateParams);
+                
+                emailStatusMessage.textContent = 'Results successfully sent to tony@permadi.id!';
+                emailStatusMessage.classList.remove('status-loading');
+                emailStatusMessage.classList.add('status-success');
+
+            } catch (error) {
+                console.error("EmailJS Error:", error);
+                emailStatusMessage.textContent = 'Error sending data. Check console for details. (Score saved locally)';
+                emailStatusMessage.classList.remove('status-loading');
+                emailStatusMessage.classList.add('status-error');
+            }
+            
+            finalScoreDisplay.innerHTML = `${finalScore} / ${totalQuestions} <span>(${percentage}%)</span>`;
+            resultArea.classList.remove('hidden');
+        }
+
+        function initializeQuiz() {
+            // Reset reCAPTCHA when starting the quiz for a fresh start (optional, but good practice)
+            if (typeof grecaptcha !== 'undefined' && grecaptcha.reset) {
+                grecaptcha.reset();
+            }
+
+            shuffledQuestions = shuffleArray(originalQuestions);
+
+            currentQuestionIndex = 0;
+            userAnswers = new Array(shuffledQuestions.length).fill(null);
+            finalScore = 0;
+            
+            resultArea.classList.add('hidden');
+            emailStatusMessage.classList.add('hidden');
+            quizActiveContent.classList.remove('hidden'); 
+            finishButton.classList.add('hidden');
+            nextButton.classList.remove('hidden');
+
+            loadQuestion();
+        }
+        
+        function resetApp() {
+            // Reset state and show the contact form
+            shuffledQuestions = [];
+            currentQuestionIndex = 0;
+            userAnswers = [];
+            finalScore = 0;
+            
+            // Clear form inputs and errors
+            contactForm.reset();
+            document.querySelectorAll('.form-error').forEach(el => el.classList.add('hidden'));
+
+            // Reset reCAPTCHA (MANDATORY on restart)
+            if (typeof grecaptcha !== 'undefined' && grecaptcha.reset) {
+                grecaptcha.reset();
+            }
+            
+            // Reset UI to form view
+            resultArea.classList.add('hidden');
+            quizActiveContent.classList.add('hidden');
+            contactFormScreen.classList.remove('hidden');
+            document.querySelector('.subtitle').textContent = 'Complete the form and verify to start the quiz.';
+        }
+
+
+        // --- EVENT LISTENERS ---
+        contactForm.addEventListener('submit', validateAndStartQuiz);
+        nextButton.addEventListener('click', nextQuestion);
+        prevButton.addEventListener('click', prevQuestion);
+        finishButton.addEventListener('click', checkCompletion);
+        restartButton.addEventListener('click', resetApp);
+        
+        // App starts by showing the form
+        window.onload = resetApp;
+    </script>
+</body>
+</html>
